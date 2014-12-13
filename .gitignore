@@ -1,0 +1,4 @@
+node_modules
+.jslintrc
+.jshintrc
+*.env

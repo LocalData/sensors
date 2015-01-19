@@ -84,3 +84,21 @@ GET /api/v1/sources/ci4omwt7k0003nm0u92mt03al/entries?startIndex=0&count=10&sort
 ## Dependencies
 
 The API stores data in a PostgreSQL database. It uses the JSON datatype but does not currently use the PL/V8 language extension.
+
+## Tests
+
+Tests use a `test.env` file to configure environment variables. See
+`test.env.sample` for an example. Run tests with
+```
+make test
+```
+
+## Migrations
+
+The Sequelize configurations point to the `DATABASE_URL` environment variable. Run migrations against the test db locally with
+
+```
+envrun -e test.env --path node_modules/.bin/sequelize db:migrate
+```
+
+Or use `node_modules/.bin/envrun` if you don't have envrun installed globally.

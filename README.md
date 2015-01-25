@@ -81,6 +81,17 @@ Get the latest 10 results (read data in pages, in descending chronological order
 GET /api/v1/sources/ci4omwt7k0003nm0u92mt03al/entries?startIndex=0&count=10&sort=desc
 ```
 
+Get the entries in a time range (limited to 1000 results), including the first boundary, excluding the second boundary:
+```
+GET /api/v1/sources/ci4omwt7k0003nm0u92mt03al/entries?from=2015-01-14T00:00:00-0800&before=2015-01-15T00:00:00-0800
+```
+
+The API also supports `after` for an exclusive start time and `until` for an
+inclusive end time. `startIndex` and `count` are honored for time range queries,
+in case you need to retrieve more than 1000 results. Alternatively, you can use
+the last timestamp of the result set as the `after` parameter of the subsequent
+query.
+
 ## Dependencies
 
 The API stores data in a PostgreSQL database. It uses the JSON datatype but does not currently use the PL/V8 language extension.

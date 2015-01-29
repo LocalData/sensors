@@ -11,17 +11,23 @@ var host = process.argv[2];
 var source = process.argv[3];
 var token = process.argv[4];
 
+function rand(min, max, round) {
+  var r = (Math.random() * (max - min)) + min;
+  if (round) { return Math.round(r); }
+  return r;
+}
+
 var data = {
   timestamp: Date.now(),
   location: [-122.430467, 37.767358],
   airquality: 'Fresh',
-  airquality_raw: 24,
-  dust: 374.71,
-  humidity: 43.6,
-  light: 4223,
-  sound: 1728,
-  temperature: 25.7,
-  uv: 277.48
+  airquality_raw: 24 + rand(-4, 4, true),
+  dust: 374.71 + rand(-1000, 1000, true)/100,
+  humidity: 43.6 + rand(-50, 50, true)/10,
+  light: 4223 + rand(-1000, 1000, true),
+  sound: 1728 + rand(-1000, 1000, true),
+  temperature: 25.7 + rand(-50, 50, true)/10,
+  uv: 277.48 + rand(-100, 100, true)/10
 };
 
 request.postAsync({

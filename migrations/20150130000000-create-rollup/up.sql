@@ -81,7 +81,7 @@ CREATE OR REPLACE FUNCTION get_rollup_fields(data json) RETURNS json AS $$
   return ret;
 $$ LANGUAGE plv8 IMMUTABLE STRICT;
 
-CREATE OR REPLACE FUNCTION upsert_rollup_reduce_5_min(input json, source_id character(25), t TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION upsert_rollup_reduce_5min(input json, source_id character(25), t TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
 /*
  * Use exception-catching and looping to hack an upsert that makes the
  * incremental changes to the rollup_5min table

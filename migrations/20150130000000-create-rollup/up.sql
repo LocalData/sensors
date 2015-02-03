@@ -1,6 +1,15 @@
 
 CREATE EXTENSION IF NOT EXISTS plv8;
 
+CREATE TABLE rollup (
+  source character(25),
+  ts timestamptz,
+  created_at timestamptz,
+  updated_at timestamptz,
+  data json
+) WITH (fillfactor=75);
+CREATE UNIQUE INDEX rollup_source_ts_idx ON rollup(source,ts);
+
 -- State transition function for the custom aggregation
 CREATE OR REPLACE FUNCTION rollup_agg_reduce(memo json, data json) RETURNS json AS $$
   if (memo === null) {
@@ -73,11 +82,13 @@ CREATE OR REPLACE FUNCTION get_rollup_fields(data json) RETURNS json AS $$
 $$ LANGUAGE plv8 IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION upsert_rollup_reduce_5_min(input json, source_id character(25), t TIMESTAMP WITH TIME ZONE) RETURNS VOID AS $$
--- Use exception-catching and looping to hack an upsert that makes the
--- incremental changes to the rollup_5min table
+/*
+ * Use exception-catching and looping to hack an upsert that makes the
+ * incremental changes to the rollup_5min table
+ */
 BEGIN
   LOOP
-    -- Try to update
+    /* Try to update */
     UPDATE rollup_5min
     SET
       data = rollup_agg_reduce(data, input),
@@ -87,10 +98,12 @@ BEGIN
     IF FOUND THEN
       RETURN;
     END IF;
-    -- Otherwise, try to insert
-    -- If another insert beat us to it, we get a unique-key failure
-    -- If someone else inserts the same key concurrently,
-    -- we could get a unique-key failure
+    /*
+     * Otherwise, try to insert
+     * If another insert beat us to it, we get a unique-key failure
+     * If someone else inserts the same key concurrently,
+     * we could get a unique-key failure
+     */
     BEGIN
       INSERT INTO rollup_5min
       (source, ts, data, updated_at, created_at)
@@ -103,7 +116,7 @@ BEGIN
       ;
       RETURN;
     EXCEPTION WHEN unique_violation THEN
-    -- Loop to try the UPDATE again.
+    /* Loop to try the UPDATE again. */
     END;
   END LOOP;
 END;

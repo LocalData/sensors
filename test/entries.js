@@ -23,62 +23,74 @@ describe('entries', function () {
   });
 
   describe('list', function () {
+    this.timeout(5000);
     var source;
     var entries;
     before(function () {
       return fixtures.createSource({})
       .then(function (data) {
         source = data;
-        return fixtures.createEntries(source.id, source.token, 20)
+        return fixtures.createEntries(source.id, source.token, 120)
         .then(function (data) {
           entries = data;
         });
       });
     });
 
-    it('should respect startIndex and count', function () {
-      var start = 5;
-      var count = 10;
+    function getEntries(qs) {
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: qs
+      }).spread(function (response, body) {
+        return JSON.parse(body);
+      });
+    }
+
+    it('should default to first entries sorted chronologically', function () {
+      var count = 15;
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          startIndex: start,
           count: count
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
+        var result = JSON.parse(body);
+        result.should.have.property('links');
+        result.links.should.have.property('next');
+        result.links.should.have.property('prev');
+        result.should.have.property('data');
+
+        var data = result.data;
         data.length.should.equal(count);
         data.forEach(function (ret, i) {
           ret.should.have.property('source');
           ret.should.have.property('timestamp');
           ret.should.have.property('data');
-          Date.parse(ret.timestamp).should.equal(entries[start + i].timestamp);
+          Date.parse(ret.timestamp).should.equal(entries[i].timestamp);
         });
 
         data.reduce(function (prevTimestamp, item) {
           var ts = Date.parse(item.timestamp);
           ts.should.be.above(prevTimestamp);
           return ts;
-        }, -1);
+        }, Number.NEGATIVE_INFINITY);
       });
     });
 
-    it('should respect sort=desc', function () {
-      var start = 0;
+    it('should default to last entries in reverse chronological order with sort=desc', function () {
       var count = 10;
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          startIndex: start,
           count: count,
           sort: 'desc'
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
+        var data = JSON.parse(body).data;
         data.length.should.equal(count);
         data.forEach(function (ret, i) {
           ret.should.have.property('source');
@@ -95,217 +107,285 @@ describe('entries', function () {
       });
     });
 
-    it('should default to startIndex=0', function () {
-      var count = 15;
-      return request.getAsync({
-        url: baseUrl + '/sources/' + source.id + '/entries',
-        qs: {
-          count: count
-        }
-      }).spread(function (response, body) {
-        response.statusCode.should.equal(200);
-
-        var data = JSON.parse(body);
-        data.length.should.equal(count);
-        data.forEach(function (ret, i) {
-          ret.should.have.property('source');
-          ret.should.have.property('timestamp');
-          ret.should.have.property('data');
-          Date.parse(ret.timestamp).should.equal(entries[i].timestamp);
-        });
-
-      });
-    });
-
-    it('should default to count=10', function () {
+    it('should default to count=100', function () {
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries'
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(10);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
       });
     });
 
-    it('should respect from and before as ISO strings', function () {
+    it('should respect from as an ISO string', function () {
       var from = new Date(entries[1].timestamp);
-      var before = new Date(entries[3].timestamp);
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          from: from.toISOString(),
+          from: from.toISOString()
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
+        data.forEach(function (ret, i) {
+          Date.parse(ret.timestamp).should.be.within(from.getTime(), Date.now());
+        });
+      });
+    });
+
+    it('should respect from as milliseconds since epoch', function () {
+      var from = new Date(entries[1].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          from: from.getTime()
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
+        data.forEach(function (ret, i) {
+          Date.parse(ret.timestamp).should.be.within(from.getTime(), Date.now());
+        });
+      });
+    });
+
+    it('should respect before as an ISO string', function () {
+      var before = new Date(entries[entries.length - 2].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
           before: before.toISOString()
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(2);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
         data.forEach(function (ret, i) {
-          Date.parse(ret.timestamp).should.be.within(from.getTime(), before.getTime());
           Date.parse(ret.timestamp).should.be.below(before.getTime());
         });
       });
     });
 
-    it('should respect from and before as milliseconds since epoch', function () {
-      var from = new Date(entries[1].timestamp);
-      var before = new Date(entries[3].timestamp);
+    it('should respect before as milliseconds since epoch', function () {
+      var before = new Date(entries[entries.length - 2].timestamp);
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          from: from.getTime(),
           before: before.getTime()
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(2);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
         data.forEach(function (ret, i) {
-          Date.parse(ret.timestamp).should.be.within(from.getTime(), before.getTime());
           Date.parse(ret.timestamp).should.be.below(before.getTime());
         });
       });
     });
 
-    it('should respect after and until as ISO strings', function () {
+    it('should respect after as an ISO string', function () {
       var after = new Date(entries[1].timestamp);
-      var until = new Date(entries[3].timestamp);
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          after: after.toISOString(),
+          after: after.toISOString()
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
+        data.forEach(function (ret, i) {
+          Date.parse(ret.timestamp).should.be.above(after.getTime());
+        });
+      });
+    });
+
+    it('should respect after as milliseconds since epoch', function () {
+      var after = new Date(entries[1].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          after: after.getTime()
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
+        data.forEach(function (ret, i) {
+          Date.parse(ret.timestamp).should.be.above(after.getTime());
+        });
+      });
+    });
+
+    it('should respect until as an ISO string', function () {
+      var until = new Date(entries[entries.length - 2].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
           until: until.toISOString()
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(2);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
         data.forEach(function (ret, i) {
-          Date.parse(ret.timestamp).should.be.within(after.getTime(), until.getTime());
-          Date.parse(ret.timestamp).should.be.above(after.getTime());
+          Date.parse(ret.timestamp).should.be.within(0, until.getTime());
         });
       });
     });
 
-    it('should respect after and until as milliseconds since epoch', function () {
-      var after = new Date(entries[1].timestamp);
-      var until = new Date(entries[3].timestamp);
+    it('should respect until as milliseconds since epoch', function () {
+      var until = new Date(entries[entries.length - 2].timestamp);
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
-          after: after.getTime(),
           until: until.getTime()
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(2);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
         data.forEach(function (ret, i) {
-          Date.parse(ret.timestamp).should.be.within(after.getTime(), until.getTime());
-          Date.parse(ret.timestamp).should.be.above(after.getTime());
+          Date.parse(ret.timestamp).should.be.within(0, until.getTime());
         });
       });
     });
 
-    it('should not set default count with time queries', function () {
-      var count = 15;
+    it('should return fewer than count entries if dictated by the time boundaries', function () {
+      var trueCount = 10;
+      var from = new Date(entries[0].timestamp);
+      var before = new Date(entries[trueCount].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          from: from.toISOString(),
+          before: before.toISOString(),
+          count: trueCount + 5
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(trueCount);
+      });
+    });
+
+    it('should return no more than count entries regardless time boundaries', function () {
+      var count = 10;
+      var from = new Date(entries[0].timestamp);
+      var before = new Date(entries[count + 5].timestamp);
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          from: from.toISOString(),
+          before: before.toISOString(),
+          count: count
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(count);
+      });
+    });
+
+    it('should default to count=100 even with time boundaries', function () {
+      var count = 105;
       var from = new Date(entries[0].timestamp);
       var before = new Date(entries[count].timestamp);
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
           from: from.toISOString(),
-          before: before.toISOString()
+          before: before.toISOString(),
         }
       }).spread(function (response, body) {
         response.statusCode.should.equal(200);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(count);
+        var data = JSON.parse(body).data;
+        data.length.should.equal(100);
       });
     });
 
-    it('should respect startIndex and count with time queries', function () {
-      var offset = 1;
-      var from = new Date(entries[offset].timestamp);
-      var until = new Date(entries[19].timestamp);
-      var start = 5;
-      var count = 5;
-      return request.getAsync({
-        url: baseUrl + '/sources/' + source.id + '/entries',
-        qs: {
-          from: from.getTime(),
-          until: until.getTime(),
-          startIndex: start,
-          count: count
-        }
-      }).spread(function (response, body) {
-        response.statusCode.should.equal(200);
-
-        var data = JSON.parse(body);
-        data.length.should.equal(count);
-        data.forEach(function (ret, i) {
-          var ts = Date.parse(ret.timestamp);
-          ts.should.be.within(from.getTime(), until.getTime());
-          ts.should.equal(entries[start + i + offset].timestamp);
-        });
-      });
-    });
-
-  });
-
-  describe('list large', function () {
-    var source;
-    var entries;
-    before(function () {
-      this.timeout(10000);
-      return fixtures.createSource({})
-      .then(function (data) {
-        source = data;
-        return fixtures.createEntriesParallel(source.id, source.token, 1010)
-        .then(function (data) {
-          entries = data;
-        });
-      });
-    });
-
-    it('should limit number of results to 1000', function () {
+    it('should deny requests for more than 1000 results', function () {
       var count = 2000;
-      var MAX = 1000;
       return request.getAsync({
         url: baseUrl + '/sources/' + source.id + '/entries',
         qs: {
           count: count
         }
       }).spread(function (response, body) {
-        response.statusCode.should.equal(200);
-
-        var data = JSON.parse(body);
-        data.length.should.equal(MAX);
+        response.statusCode.should.equal(400);
       });
     });
 
-    it('should limit to 1000 results with time queries', function () {
-      var MAX = 1000;
-      // Set time parameters that will include all of the entries we created.
-      var from = new Date(entries[0].timestamp);
-      var until = new Date(entries[entries.length - 1].timestamp + 60000);
-      return request.getAsync({
-        url: baseUrl + '/sources/' + source.id + '/entries',
-        qs: {
-          from: from.toISOString(),
-          until: until.toISOString()
-        }
-      }).spread(function (response, body) {
-        response.statusCode.should.equal(200);
+    it('should order prev, current, next results chronologically for sort=asc', function () {
+      var count = 15;
+      var results;
+      return getEntries({
+        sort: 'asc',
+        after: entries[50].timestamp,
+        count: count
+      }).then(function (body) {
+        results = body.data;
+        return [
+          request.getAsync({ url: body.links.prev }).get(1).then(JSON.parse),
+          request.getAsync({ url: body.links.next }).get(1).then(JSON.parse)
+        ];
+      }).all().spread(function (prev, next) {
+        prev.data.length.should.equal(count);
+        next.data.length.should.equal(count);
+        results = prev.data.concat(results).concat(next.data);
+        results.length.should.equal(3 * count);
 
-        var data = JSON.parse(body);
-        data.length.should.equal(MAX);
+        // Check strict chronological sort order, which assures there are no
+        // duplicated timestamps.
+        results.reduce(function (prevTimestamp, item) {
+          var ts = Date.parse(item.timestamp);
+          ts.should.be.above(prevTimestamp);
+          return ts;
+        }, Number.NEGATIVE_INFINITY);
+      });
+    });
+
+    it('should order prev, current, next results reverse-chronologically for sort=desc', function () {
+      var count = 15;
+      var results;
+      return getEntries({
+        sort: 'desc',
+        after: entries[40].timestamp,
+        before: entries[60].timestamp,
+        count: count
+      }).then(function (body) {
+        results = body.data;
+        return [
+          request.getAsync({ url: body.links.prev }).get(1).then(JSON.parse),
+          request.getAsync({ url: body.links.next }).get(1).then(JSON.parse)
+        ];
+      }).all().spread(function (prev, next) {
+        prev.data.length.should.equal(count);
+        next.data.length.should.equal(count);
+        results = prev.data.concat(results).concat(next.data);
+        results.length.should.equal(3 * count);
+
+        // Check strict chronological sort order, which assures there are no
+        // duplicated timestamps.
+        results.reduce(function (prevTimestamp, item) {
+          var ts = Date.parse(item.timestamp);
+          ts.should.be.below(prevTimestamp);
+          return ts;
+        }, Number.POSITIVE_INFINITY);
       });
     });
 

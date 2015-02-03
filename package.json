@@ -26,7 +26,7 @@
     "pg-native": "^1.8.0",
     "request": "^2.51.0",
     "sequelize": "^2.0.0-rc8",
-    "sequelize-cli": "^1.0.4"
+    "sequelize-cli": "^1.0.8"
   },
   "devDependencies": {
     "envrun": "0.0.2",

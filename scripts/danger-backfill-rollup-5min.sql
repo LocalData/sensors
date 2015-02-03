@@ -22,7 +22,7 @@ BEGIN
       sources.source,
       LEAST(min(r.created_at), now()) AS tlimit
       FROM sources
-      LEFT OUTER JOIN rollup r
+      LEFT OUTER JOIN rollup_5min r
       ON sources.source = r.source
       GROUP BY sources.source
       ORDER BY sources.source
@@ -48,7 +48,7 @@ BEGIN
       s.source,
       (SELECT COUNT(*) FROM entries WHERE source = s.source AND ts >= s.tmin  AND ts < s.tmax),
       s.tmin, s.tmax, s.tlimit;
-    PERFORM upsert_rollup_reduce(g.data, s.source, g.t)
+    PERFORM upsert_rollup_reduce_5min(g.data, s.source, g.t)
     FROM (
       SELECT
       rollup_agg(rollup_agg_map(entries.data)) AS data,

@@ -1,14 +1,14 @@
 
 CREATE EXTENSION IF NOT EXISTS plv8;
 
-CREATE TABLE rollup (
+CREATE TABLE rollup_5min (
   source character(25),
   ts timestamptz,
   created_at timestamptz,
   updated_at timestamptz,
   data json
 ) WITH (fillfactor=75);
-CREATE UNIQUE INDEX rollup_source_ts_idx ON rollup(source,ts);
+CREATE UNIQUE INDEX rollup_source_ts_idx ON rollup_5min(source,ts);
 
 -- State transition function for the custom aggregation
 CREATE OR REPLACE FUNCTION rollup_agg_reduce(memo json, data json) RETURNS json AS $$

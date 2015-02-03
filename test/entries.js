@@ -262,6 +262,31 @@ describe('entries', function () {
       });
     });
 
+    it('should interpret "now" properly as a timestamp', function () {
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          until: 'now',
+          sort: 'desc',
+          count: 1
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(200);
+
+        var data = JSON.parse(body).data;
+        data.length.should.equal(1);
+        data.forEach(function (ret, i) {
+          Date.parse(ret.timestamp).should.be.below(Date.now());
+        });
+        return getEntries({
+          after: 'now',
+          count: 10
+        }).then(function (body) {
+          body.data.length.should.equal(0);
+        });
+      });
+    });
+
     it('should return fewer than count entries if dictated by the time boundaries', function () {
       var trueCount = 10;
       var from = new Date(entries[0].timestamp);

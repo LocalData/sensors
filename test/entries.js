@@ -478,6 +478,24 @@ describe('entries', function () {
       });
     });
 
+    it('should deny malformed authentications', function () {
+      // No colon
+      var bearer = (new Buffer('foobar')).toString('base64');
+      var entry = {
+        timestamp: Date.now(),
+        foo: 1.23,
+        bar: 100*Math.random()
+      };
+
+      return request.postAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        json: entry,
+        auth: { bearer: bearer }
+      }).spread(function (response, data) {
+        response.statusCode.should.equal(403);
+      });
+    });
+
     it('should verify that the token and source match', function () {
       var bearer = (new Buffer(':' + other.token)).toString('base64');
       var entry = {

@@ -355,6 +355,30 @@ describe('entries', function () {
       });
     });
 
+    it('should deny requests for 0 results', function () {
+      var count = 0;
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          count: count
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(400);
+      });
+    });
+
+    it('should deny requests for a negative count', function () {
+      var count = -1;
+      return request.getAsync({
+        url: baseUrl + '/sources/' + source.id + '/entries',
+        qs: {
+          count: count
+        }
+      }).spread(function (response, body) {
+        response.statusCode.should.equal(400);
+      });
+    });
+
     it('should order prev, current, next results chronologically for sort=asc', function () {
       var count = 15;
       var results;
